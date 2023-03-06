@@ -27,6 +27,14 @@ function exception_error_handler($errno, $errstr, $errfile, $errline ) {
 }
 set_error_handler("exception_error_handler");
 
+$app->on(404, function(\Bullet\Request $request, \Bullet\Response $response) use ($app) {
+    if ($request->format() === 'json') {
+        if ($response->content() == $response->statusText(404)) {
+            $response->content(json_encode(['message' => 'Not Found']));
+        }
+    }
+});
+
 // Display exceptions with error and 500 status
 $app->on('Exception', function(\Bullet\Request $request, \Bullet\Response $response, \Exception $e) use($app) {
     if ($request->format() === 'json') {

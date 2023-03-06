@@ -5,7 +5,7 @@ $(document).ready(function() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     themeSystem: 'bootstrap5',
     initialView: 'dayGridYear',
-    events: '/api/event',
+    events: '/api/events',
     selectable: true,
     select: cal_on_select,
     eventClick: cal_on_eventClick
@@ -51,6 +51,7 @@ function cal_on_eventClick(info) {
 
 function save_event_on_ajax_error(xhr) {
   const error_obj = JSON.parse(xhr.responseText);
+  console.log('save_event_on_ajax_error: ' + xhr.responseText);
   $(":button").attr("disabled", false);
   $("#submit-btn").html("Save changes");
   if (error_obj.overlap_found) {
@@ -80,7 +81,7 @@ function save_event(e) {
     // update existing event
 
     $.ajax({
-      url: '/api/event/' + event.id,
+      url: '/api/events/' + event.id,
       dataType: 'json',
       type: 'put',
       data: JSON.stringify(event),
@@ -97,7 +98,7 @@ function save_event(e) {
     // create new event
 
     $.ajax({
-      url: '/api/event',
+      url: '/api/events',
       data: JSON.stringify(event),
       dataType: 'json',
       type: 'post',
@@ -120,7 +121,7 @@ function delete_event(e) {
   console.log(event);
 
   $.ajax({
-    url: '/api/event/' + event.id,
+    url: '/api/events/' + event.id,
     dataType: 'json',
     type: 'delete',
     success: function() {

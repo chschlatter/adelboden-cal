@@ -32,7 +32,7 @@ class EventMapper {
        $query->execute();       
     }
 
-    public function getEvents($response, $range = null)
+    public function getEvents(\Bullet\Response $response, $range = null)
     {
         $query_str = 'SELECT id, title, start, end FROM events';
         if ($range) {
@@ -54,7 +54,7 @@ class EventMapper {
         $response->content($events_array);
     }
 
-    public function createEvent($event, $response)
+    public function createEvent($event, \Bullet\Response $response)
     {
         $this->getExclusiveLock();
         try {
@@ -76,7 +76,7 @@ class EventMapper {
         }       
     }
 
-    public function updateEvent($event, $response)
+    public function updateEvent($event, \Bullet\Response $response)
     {
         $this->getExclusiveLock();
         try {
@@ -100,7 +100,7 @@ class EventMapper {
         }
     }
 
-    public function findOverlap($event, $response)
+    public function findOverlap($event, \Bullet\Response $response)
     {
         $query = $this->db->prepare(
             'SELECT * FROM events WHERE ' .
@@ -110,29 +110,28 @@ class EventMapper {
         $query->bindValue(':id', $event['id']);
         $result = $query->execute();
 
+        $overlap['overlap_found'] = false;
          while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            Log::info('overlap_found - event:', $event);
+            Log::info('overlap found - row:', $row);
             $overlap['overlap_found'] = true;
-            if ($event['start'] > $row['start'] and 
-                $event['start'] < $row['end_inclusive']) {
+            if ($event['start'] > $row['start']) {
                 $overlap['input_start_date'] = 'overlap found';
-            }
-            if ($event['end_inclusive'] > $row['start'] and
-                $event['end_inclusive'] < $row['end_inclusive']) {
+            };
+            if ($event['end_inclusive'] <= $row['end_inclusive']) {
                 $overlap['input_end_date'] = 'overlap found';
-            }
+            };
             if (is_array($response->content())) {
                 $response->content(array_merge($response->content(), $overlap));
             } else {
                 $response->content($overlap);
             }
-            
-            return true;
         }
-        
-        return false;
+
+        return $overlap['overlap_found'];
     }
 
-    public function deleteEvent($event_id, $response)
+    public function deleteEvent($event_id, \Bullet\Response $response)
     {
         if (!$this->db->querySingle("SELECT * FROM events WHERE id = $event_id;")) {
             $response->status(404);
