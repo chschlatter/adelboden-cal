@@ -1,0 +1,180 @@
+openapi: 3.0.0
+servers:
+  - url: https://adelboden.schlatter.net
+info:
+  title: cal-api
+  description: Events API for Adelboden calendar.
+  version: 1.0.0
+paths:
+  /events:
+    
+    get:
+      summary: Get list of events
+      description: >
+        A date range can optionally be provided with
+        query parameters `start` and `end`.
+      operationId: getEvents
+      parameters:
+        - name: range
+          in: query
+          description: Date range for the list of events
+          required: false
+          schema:
+            type: object
+            properties:
+              start:
+                type: string
+                format: date
+              end:
+                type: string
+                format: date
+            additionalProperties: false
+            required:
+              - start
+              - end
+          example:
+            start: 2023-02-01
+            end: 2023-02-08
+      responses:
+        "200":
+          description: List of events in JSON format
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+              example:
+                - id: 2
+                  title: first event
+                  start: 2023-02-01
+                  end: 2023-02-08
+                - id: 3
+                  title: second event
+                  start: 2023-02-04
+                  end: 2023-02-14
+
+        "5XX":
+          description: Server error
+
+    post:
+      summary: Create new event
+      description: >
+        Request body must contain event in JSON format.
+        Event ID will be generated and returned in event object of HTTP response.
+        If ID is provided in request, it will be ignored.
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Event"
+              required:
+                - title
+                - start
+                - end
+            example:
+              title: second event
+              start: 2023-02-01
+              end: 2023-02-08
+      responses:
+        '201':
+          description: "Event successfully created."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+              example:
+                id: 2
+                title: second event
+                start: 2023-02-01
+                end: 2023-02-08
+        '422':
+          $ref: '#/components/responses/422-overlapFound'
+
+  /events/{id}:
+    summary: Represents an event
+    description: >
+      This resource represents an individual event in the system.
+      Each event is identified by a numeric `id`.
+
+    put:
+      summary: Update existing event by ID
+      description: >
+        Request body must contain event object in JSON format
+        with updated parameters.
+      operationId: updateEvent
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the event to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Event"
+              required:
+                - title
+                - start
+                - end
+            example:
+              id: 2
+              title: second event
+              start: 2023-02-02
+              end: 2023-02-08
+      responses:
+        '200':
+          description: Event successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+              example:
+                id: 2
+                title: second event
+                start: 2023-02-02
+                end: 2023-02-08
+        '422':
+          $ref: '#/components/responses/422-overlapFound'
+
+components:
+  schemas:
+    Event:
+      title: calendar event
+      description: >
+        A calendar event conforming to https://fullcalendar.io/docs/event-object
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+      example:
+        id: 1
+        title: event title
+        start: 2023-02-01
+        end: 2023-02-08
+
+  responses:
+    422-overlapFound:
+      description: 'Overlap found'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              overlap_found:
+                type: boolean

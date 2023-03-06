@@ -7,11 +7,16 @@ require CAL_ROOT . '/logger.php';
 $dotenv = Dotenv\Dotenv::createImmutable(CAL_ROOT);
 $dotenv->safeLoad();
 
+$_GET['u'] = $_GET['u'] ?? '/';
+
 $request = new Bullet\Request();
-$app = new Bullet\App();
+$app = new Bullet\App(array(
+    'template.cfg' => array('path' => __DIR__ . '/templates/')
+));
 
 require CAL_ROOT . '/common.php';
 require CAL_ROOT . '/EventMapper.php';
+require CAL_ROOT . '/UserMapper.php';
 
 $db = new SQLite3(CAL_ROOT . '/' . $_ENV['DB_FILE']);
 $db->busyTimeout(5000);
@@ -22,9 +27,38 @@ $db->exec("CREATE TABLE IF NOT EXISTS events (
     end TIMESTAMP NOT NULL,
     end_inclusive TIMESTAMP NOT NULL)");
 
-$app->path('event', function($req) use ($app, $db) {
+$app->path(array('/', 'index'), function($req) use($app) {
+    $app->get(function($req) use($app) {
+        $app->format('html', function($req) use($app) {
+            return $app->template('openapi');
+        });
+    });
+});
+
+// PATH /users
+$app->path('users', function($req) use ($app, $db) {
+    $users = new UserMapper($db);
+
+    // PATH /users/login
+    $app->path('login', function($req) use ($app, $users) {
+
+        // POST (login with user_name & password in request body)
+        $app->post(function($req) use ($app, $users) {
+            $user = $req->json();
+            if (!isset($user['name'])) {
+                return $app->response(400, ['message' => 'No user name provided.']);
+            }
+            $users->authenticate($user, $app->response());
+            
+            return $app->response();
+        });
+    });
+});
+
+$app->path('events', function($req) use ($app, $db) {
     $events = new EventMapper($db);
 
+    // populate $event array from JSON body, needed for POST and PUT methods
     $event = null;
     if ($req->isPost() or $req->isPut()) {
         $event = $req->json();
@@ -37,6 +71,7 @@ $app->path('event', function($req) use ($app, $db) {
         $event['id'] = $event['id'] ?? 0;
     }
 
+    // get events: GET /event ; optional URL params 'start', 'end'
     $app->get(function ($req) use ($app, $events) {
         $range['start'] = $req->get('start');
         $range['end'] = $req->get('end');
@@ -51,7 +86,7 @@ $app->path('event', function($req) use ($app, $db) {
         return $app->response();
     });
 
-    // /event/{id}
+    // /events/{id}
     $app->param('int', function ($req, $event_id) use ($app, $events, $event) {
 
         // update event: PUT /event/{id} ; body = JSON(event)
@@ -69,10 +104,10 @@ $app->path('event', function($req) use ($app, $db) {
     });
 });
 
-$result = $app->run($request);
+$response = $app->run($request);
 // $result_str = $app->dump($result);
 // Log::info('response: ' . $result_str);
 // echo $app->dump($result);
-$result->send();
+$response->send();
 
 // $app->run($request)->send();
