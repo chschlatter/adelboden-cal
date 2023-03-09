@@ -32,36 +32,49 @@ class EventMapper {
        $query->execute();       
     }
 
-    public function getEvents(\Bullet\Response $response, $range = null)
+    public function getEvents($range = null)
     {
+        $result = array('success'    => false,
+                        'error_code' => '',
+                        'properties' => []);
+
         $query_str = 'SELECT id, title, start, end FROM events';
         if ($range) {
             $query_str .= ' WHERE start BETWEEN :start AND :end';
             $query = $this->db->prepare($query_str . ';');
             $query->bindValue(':start', $range['start']);
             $query->bindValue(':end', $range['end']);
-            $result = $query->execute();
+            $db_result = $query->execute();
         } else {
-            $result = $this->db->query($query_str . ';');
+            $db_result = $this->db->query($query_str . ';');
         }
         
         $events_array = [];
-        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+        while ($row = $db_result->fetchArray(SQLITE3_ASSOC)) {
             array_push($events_array, $row);
         }
 
-        $response->status(200);
-        $response->content($events_array);
+        $result['success'] = true;
+        $result['properties'] = $events_array;
+        return $result;
     }
 
-    public function createEvent($event, \Bullet\Response $response)
+    public function createEvent(array $event)
     {
+        $result = array('success' => false, 
+                        'error_code' => '',
+                        'properties' => []);
+
         $this->getExclusiveLock();
         try {
-            if ($this->findOverlap($event, $response)) {
-                $response->status(422);
-                return;
-            }
+            $overlap_result = $this->findOverlap($event);
+            if ($overlap_result['overlap_found']) {
+                $result['error_code'] = 'event-010';
+                $result['properties'] = 
+                    ['overlap_start' => $overlap_result['overlap_start'],
+                     'overlap_end' => $overlap_result['overlap_end']];
+                return $result;
+            };
 
             $query_str = 
                 'INSERT INTO events (title, start, end, end_inclusive) ' .
@@ -69,81 +82,90 @@ class EventMapper {
             $this->dbExecute($query_str, $event);
             $event['id'] = $this->db->lastInsertRowID();
 
-            $response->status(201);
-            $response->content($event);
+            $result['success'] = true;
+            $result['properties'] = $event;
+            return $result;
         } finally {
             $this->releaseExclusiveLock();
         }       
     }
 
-    public function updateEvent($event, \Bullet\Response $response)
+    public function updateEvent(array $event)
     {
+        $result = array('success' => false, 
+                        'error_code' => '',
+                        'properties' => []);
+
         $this->getExclusiveLock();
         try {
-            if ($this->findOverlap($event, $response)) {
-                $response->status(422);
-                return;
-            }
+            $overlap_result = $this->findOverlap($event);
+            if ($overlap_result['overlap_found']) {
+                $result['error_code'] = 'event-010';
+                $result['properties'] = 
+                    ['overlap_start' => $overlap_result['overlap_start'],
+                     'overlap_end' => $overlap_result['overlap_end']];
+                return $result;
+            };
 
             $query_str = 
                 'UPDATE events SET (title, start, end, end_inclusive) ' .
                 '= (:title, :start, :end, :end_inclusive) ' .
                 'WHERE id = :id;';
-            Log::info(__METHOD__ . ': ' . $query_str, $event);
             $this->dbExecute($query_str, $event);
 
-            $response->status(200);
-            $response->content($event);
+            $result['success'] = true;
+            $result['properties'] = $event;
+            return $result;
 
         } finally {
             $this->releaseExclusiveLock();
         }
     }
 
-    public function findOverlap($event, \Bullet\Response $response)
+    public function findOverlap($event)
     {
+        $result = array('overlap_found' => false, 
+                        'overlap_start' => false, 
+                        'overlap_end'   => false);
+
         $query = $this->db->prepare(
             'SELECT * FROM events WHERE ' .
             ':start < "end_inclusive" AND :end_inclusive > "start" AND :id != "id";');
         $query->bindValue(':start', $event['start']);
         $query->bindValue(':end_inclusive', $event['end_inclusive']);
         $query->bindValue(':id', $event['id']);
-        $result = $query->execute();
+        $db_result = $query->execute();
 
-        $overlap['overlap_found'] = false;
-         while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-            Log::info('overlap_found - event:', $event);
-            Log::info('overlap found - row:', $row);
-            $overlap['overlap_found'] = true;
+         while ($row = $db_result->fetchArray(SQLITE3_ASSOC)) {
+            $result['overlap_found'] = true;
             if ($event['start'] > $row['start']) {
-                $overlap['input_start_date'] = 'overlap found';
+                $result['overlap_start'] = true;
             };
             if ($event['end_inclusive'] <= $row['end_inclusive']) {
-                $overlap['input_end_date'] = 'overlap found';
+                $result['overlap_end'] = true;
             };
-            if (is_array($response->content())) {
-                $response->content(array_merge($response->content(), $overlap));
-            } else {
-                $response->content($overlap);
-            }
-        }
+        };
 
-        return $overlap['overlap_found'];
+        return $result;
     }
 
-    public function deleteEvent($event_id, \Bullet\Response $response)
+    public function deleteEvent($event_id)
     {
+        $result = array('success' => false, 
+                        'error_code' => '',
+                        'properties' => ['event_id' => $event_id]);
+
         if (!$this->db->querySingle("SELECT * FROM events WHERE id = $event_id;")) {
-            $response->status(404);
-            $response->content(['message' => "Could not find event with id [$event_id]."]);
+            $result['error_code'] = 'event-011';
+            return $result;
         }
 
         if ($this->db->exec("DELETE FROM events WHERE id = $event_id;")) {
-            $response->status(200);
-            $response->content(['message' => "Deleted event with id [$event_id]."]);
+            $result['success'] = true;
         } else {
-            $response->status(500);
-            $response->content(['message' => 'DB error: ' . $this->db->lastErrorMsg()]);
+            $result['error_code'] = 'api-010';
+            $result['properties'] = ['db_error_msg' => $this->db->lastErrorMsg()];
         }
+        return $result;
     }
 }

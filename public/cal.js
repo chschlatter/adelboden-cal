@@ -18,9 +18,12 @@ $(document).ready(function() {
 
   $(".form-control").change(function() {
     $(this).removeClass('is-invalid');
+    $("#error-msg").text('');
   });
 
   calendar.render();
+
+  console.log(SERVER_VARS);
 
   setInterval( function() {
     calendar.refetchEvents();
@@ -49,20 +52,25 @@ function cal_on_eventClick(info) {
   $('#event-modal').modal('show');
 }
 
-function save_event_on_ajax_error(xhr) {
-  const error_obj = JSON.parse(xhr.responseText);
-  console.log('save_event_on_ajax_error: ' + xhr.responseText);
-  $(":button").attr("disabled", false);
-  $("#submit-btn").html("Save changes");
-  if (error_obj.overlap_found) {
-    if (error_obj.input_start_date) {
-      $("#input-start-date-msg").text(error_obj.input_start_date);
-      $("#input-start-date").addClass('is-invalid');
+function modal_on_ajax_error(xhr) {
+  try {
+    const response = JSON.parse(xhr.responseText);
+    console.log('modal_on_ajax_error: ' + xhr.responseText);
+    
+    if (response.code == 'event-010') {
+      if (response.overlap_start) {
+        $("#input-start-date").addClass('is-invalid');
+      }
+      if (response.overlap_end) {
+        $("#input-end-date").addClass('is-invalid');
+      }
     }
-    if (error_obj.input_end_date) {
-      $("#input-end-date-msg").text(error_obj.input_end_date);
-      $("#input-end-date").addClass('is-invalid');
-    }
+
+    $("#error-msg").text(response.message);
+
+  } finally {
+    $(":button").attr("disabled", false);
+    $("#submit-btn").html("Save changes");
   }
 }
 
@@ -72,7 +80,7 @@ function save_event(e) {
   event.end = dayjs(event.end).add(1, 'day').format('YYYY-MM-DD');
 
   event.title = 'title of event';
-  console.log(event);
+  console.log('save_event (from modal form): ' + JSON.stringify(event));
 
   $(":button").attr("disabled", true);
   $("#submit-btn").html("Saving ...");
@@ -85,14 +93,15 @@ function save_event(e) {
       dataType: 'json',
       type: 'put',
       data: JSON.stringify(event),
-      success: function(xhr) {
+      success: function(event_updated) {
         cal_event = calendar.getEventById(event.id);
+        console.log('save_event (server response): ' + JSON.stringify(event_updated));
         if (cal_event != null) {
           cal_event.setDates(event.start, event.end, {allDay: true});
         };
         $("#event-modal").modal('hide');
       },
-      error: save_event_on_ajax_error
+      error: modal_on_ajax_error
     })
   } else {
     // create new event
@@ -109,7 +118,7 @@ function save_event(e) {
         calendar.addEvent(event_created, true);
         $("#event-modal").modal('hide');
       },
-      error: save_event_on_ajax_error
+      error: modal_on_ajax_error
     });
   }
 }
@@ -118,7 +127,7 @@ function delete_event(e) {
   const form_data = new FormData(document.getElementById("add-event-form-modal"));
   const event = Object.fromEntries(form_data);
   event.end = dayjs(event.end).add(1, 'day').format('YYYY-MM-DD');
-  console.log(event);
+  console.log('delete_event(): ' + JSON.stringify(event));
 
   $.ajax({
     url: '/api/events/' + event.id,
@@ -130,12 +139,14 @@ function delete_event(e) {
         cal_event.remove();
       }
       $("#event-modal").modal('hide');
-    }
-  })
+    },
+    error: modal_on_ajax_error
+  });
 }
 
 function reset_modal_form() {
   $("#add-event-form-modal .is-invalid").removeClass('is-invalid');
+  $("#error-msg").text('');
   $('#delete-btn').addClass('d-none');
   $('#event-id').val('');
   $('#event-title').val('');

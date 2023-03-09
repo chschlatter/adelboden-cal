@@ -1,11 +1,10 @@
 <?php
-define('CAL_ROOT', dirname(__DIR__, 2));
 
-require CAL_ROOT . '/vendor/autoload.php';
-require CAL_ROOT . '/logger.php';
+require '../../init.php';
+require CAL_ROOT . '/ApiResponse.php';
+require CAL_ROOT . '/EventMapper.php';
+require CAL_ROOT . '/UserMapper.php';
 
-$dotenv = Dotenv\Dotenv::createImmutable(CAL_ROOT);
-$dotenv->safeLoad();
 
 $_GET['u'] = $_GET['u'] ?? '/';
 
@@ -15,8 +14,6 @@ $app = new Bullet\App(array(
 ));
 
 require CAL_ROOT . '/common.php';
-require CAL_ROOT . '/EventMapper.php';
-require CAL_ROOT . '/UserMapper.php';
 
 $db = new SQLite3(CAL_ROOT . '/' . $_ENV['DB_FILE']);
 $db->busyTimeout(5000);
@@ -26,6 +23,10 @@ $db->exec("CREATE TABLE IF NOT EXISTS events (
     start TIMESTAMP NOT NULL,
     end TIMESTAMP NOT NULL,
     end_inclusive TIMESTAMP NOT NULL)");
+
+
+$app->response(new ApiResponse());
+
 
 $app->path(array('/', 'index'), function($req) use($app) {
     $app->get(function($req) use($app) {
@@ -48,11 +49,26 @@ $app->path('users', function($req) use ($app, $db) {
             if (!isset($user['name'])) {
                 return $app->response(400, ['message' => 'No user name provided.']);
             }
-            $users->authenticate($user, $app->response());
-            
+            if ($users->authenticate($user, $app->response())) {
+                // generate token
+                $username_base64 = base64_encode($user['name']);
+                $signature = hash('sha256', $user['name'] . $_ENV['APP_ADMIN_PWD']);
+                $token = $username_base64 . '.' . $signature;
+                // $app->response()->content(array_merge($app->response()->content(), ['token' => $token]));
+                // setcookie('token', $token, strtotime('+300 days'));
+                // setcookie('token', $token, 0, '/');
+                setcookie('token', $token, 
+                          array('path' => '/',
+                                'expires' => 0,
+                                'httponly' => true,
+                                'samesite' => 'strict'));
+            }
+
             return $app->response();
         });
+
     });
+    return false;
 });
 
 $app->path('events', function($req) use ($app, $db) {
@@ -73,17 +89,27 @@ $app->path('events', function($req) use ($app, $db) {
 
     // get events: GET /event ; optional URL params 'start', 'end'
     $app->get(function ($req) use ($app, $events) {
+        if (!$app->response()->auth()) return $app->response()->error('api-020');
+
         $range['start'] = $req->get('start');
         $range['end'] = $req->get('end');
         if ($range['start'] === null or $range['end'] === null) $range = null; 
-        $events->getEvents($app->response());
-        return $app->response();
+        $result = $events->getEvents($range);
+        if ($result['success']) {
+            return $app->response(200, $result['properties']);
+        }
+        return $app->response()->error($result['error_code'], $result['properties']);
     });
 
     // create event: POST /event ; body = JSON(event)
     $app->post(function ($req) use ($app, $events, $event) {
-        $events->createEvent($event, $app->response());
-        return $app->response();
+        if (!$app->response()->auth()) return $app->response()->error('api-020');
+
+        $result = $events->createEvent($event);
+        if ($result['success']) {
+            return $app->response(201, $result['properties']);
+        }
+        return $app->response()->error($result['error_code'], $result['properties']);
     });
 
     // /events/{id}
@@ -91,15 +117,25 @@ $app->path('events', function($req) use ($app, $db) {
 
         // update event: PUT /event/{id} ; body = JSON(event)
         $app->put(function ($req) use ($app, $event_id, $events, $event) {
+            if (!$app->response()->auth()) return $app->response()->error('api-020');
+
             $event['id'] = $event_id;
-            $events->updateEvent($event, $app->response());
-            return $app->response();
+            $result = $events->updateEvent($event);
+            if ($result['success']) {
+                return $app->response(200, $result['properties']);
+            };
+            return $app->response()->error($result['error_code'], $result['properties']);
         });
 
         // delete event: DELETE /event/{id}
         $app->delete(function ($req) use ($app, $event_id, $events) {
-            $events->deleteEvent($event_id, $app->response());
-            return $app->response();
+            if (!$app->response()->auth()) return $app->response()->error('api-020');
+
+            $result = $events->deleteEvent($event_id);
+            if ($result['success']) {
+                return $app->response(200, $result['properties']);
+            }
+            return $app->response()->error($result['error_code'], $result['properties']);
         });
     });
 });

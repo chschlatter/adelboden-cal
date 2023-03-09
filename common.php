@@ -3,8 +3,6 @@
 date_default_timezone_set('UTC');
 error_reporting(-1); // Display ALL errors
 ini_set('display_errors', '1');
-ini_set("session.cookie_httponly", '1'); // Mitigate XSS javascript cookie attacks for browers that support it
-ini_set("session.use_only_cookies", '1'); // Don't allow session_id in URLs
 
 define('CAL_ENV', $request->env('CAL_ENV', 'development'));
 
@@ -15,17 +13,6 @@ if (CAL_ENV == 'production') {
     ini_set('display_errors', '0');
 }
 
-// Throw Exceptions for everything so we can see the errors
-function exception_error_handler($errno, $errstr, $errfile, $errline ) {
-    // Don't catch suppressed errors with '@' sign
-    // @link http://stackoverflow.com/questions/7380782/error-supression-operator-and-set-error-handler
-    $error_reporting = ini_get('error_reporting');
-    if (!($error_reporting & $errno)) {
-        return;
-    }
-    throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
-}
-set_error_handler("exception_error_handler");
 
 $app->on(404, function(\Bullet\Request $request, \Bullet\Response $response) use ($app) {
     if ($request->format() === 'json') {

@@ -31,16 +31,19 @@ class UserMapper {
         $result = $query->execute();
 
         if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-            Log::info('row:', $row);
             if ($user['name'] == 'admin') {
-                if ($user['password'] != $row['password']) {
-                    $response->status(400)->content(['message' => 'Wrong password']);
+                if ($user['password'] != $_ENV['APP_ADMIN_PWD']) {
+                    $data = ['message' => 'Wrong password',
+                             'code' => 'pwd-1'];
+                    $response->status(400)->content($data);
                     return false;
                 }
             }
             $response->status(200)->content(['message' => 'Login successfull']);
             return true;
         }
-        $response->status(404)->content(['message' => 'User not found']);
+        $data = ['message' => 'User not found',
+                 'code' => 'usr-1'];
+        $response->status(404)->content($data);
     }
 }
