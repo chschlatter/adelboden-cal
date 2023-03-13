@@ -40,11 +40,11 @@ function login(e) {
 
             if (error_obj.message) {
                 if (error_obj.code && typeof error_obj.code == 'string') {
-                    if (error_obj.code.indexOf('usr') == 0) {
+                    if (error_obj.code == 'auth-011') {
                         $("#username-feedback").text(error_obj.message);
                         $("#username-input").addClass('is-invalid');
                     }
-                    if (error_obj.code.indexOf('pwd') == 0) {
+                    if (error_obj.code == 'auth-010') {
                         $("#password-feedback").text(error_obj.message);
                         $("#password-input").addClass('is-invalid');
                     }

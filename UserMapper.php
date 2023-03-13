@@ -23,6 +23,15 @@ class UserMapper {
     }
     */
 
+    public function getUsers(): array
+    {
+        $result = $this->db->query('SELECT * FROM users;');
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $users[] = $row['name'];
+        }
+        return $users;
+    }
+
     public function authenticate($user, \Bullet\Response $response)
     {
         $query_str = 'SELECT * FROM users WHERE name = :name;';

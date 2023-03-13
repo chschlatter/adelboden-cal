@@ -1,10 +1,13 @@
 <?php
 
 require '../init.php';
-require CAL_ROOT . '/ApiResponse.php';
+require CAL_ROOT . '/ApiRequest.php';
 
-$auth_result = ApiResponse::cookieAuth();
-if (!$auth_result['auth_success']) header('Location: /login.php');
+try {
+  $auth_result = ApiRequest::cookieAuth();
+} catch (ApiException $e) {
+  header('Location: /login.php');
+}
 
 $SERVER_VARS = array('username' => $auth_result['username']);
 

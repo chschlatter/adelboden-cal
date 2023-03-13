@@ -1,3 +1,4 @@
 .env
 /vendor/
 /cal.*
+.phpunit.result.cache

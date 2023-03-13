@@ -41,6 +41,11 @@ function cal_on_select(info) {
 
 function cal_on_eventClick(info) {
   const event = info.event;
+
+  if (SERVER_VARS.username != 'admin' && event.title != SERVER_VARS.username) {
+    return;
+  }
+
   const end_date_exclusive = dayjs(event.end);
   const end_date_str = end_date_exclusive.subtract(1, 'day').format('YYYY-MM-DD');
   $('#event-id').val(event.id);
@@ -79,7 +84,7 @@ function save_event(e) {
   const event = Object.fromEntries(form_data);
   event.end = dayjs(event.end).add(1, 'day').format('YYYY-MM-DD');
 
-  event.title = 'title of event';
+  event.title = SERVER_VARS.username;
   console.log('save_event (from modal form): ' + JSON.stringify(event));
 
   $(":button").attr("disabled", true);

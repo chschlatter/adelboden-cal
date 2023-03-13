@@ -32,14 +32,11 @@ class EventMapper {
        $query->execute();       
     }
 
-    public function getEvents($range = null)
-    {
-        $result = array('success'    => false,
-                        'error_code' => '',
-                        'properties' => []);
 
+    public function getEvents($range = null): array
+    {
         $query_str = 'SELECT id, title, start, end FROM events';
-        if ($range) {
+        if ($range['start'] and $range['end']) {
             $query_str .= ' WHERE start BETWEEN :start AND :end';
             $query = $this->db->prepare($query_str . ';');
             $query->bindValue(':start', $range['start']);
@@ -54,80 +51,64 @@ class EventMapper {
             array_push($events_array, $row);
         }
 
-        $result['success'] = true;
-        $result['properties'] = $events_array;
-        return $result;
+        return $events_array;
     }
 
-    public function createEvent(array $event)
+    // /throws ApiException
+    public function getEventTitle(int $event_id): string
     {
-        $result = array('success' => false, 
-                        'error_code' => '',
-                        'properties' => []);
+        $row = $this->db->querySingle(
+               "SELECT * FROM events WHERE id = $event_id;",
+               true);
+        if (!$row) {
+            throw new ApiException('event-011');
+        }
+        return $row['title'];
+    }
 
+    // /throws ApiException
+    public function createEvent(array $event): array
+    {
         $this->getExclusiveLock();
         try {
-            $overlap_result = $this->findOverlap($event);
-            if ($overlap_result['overlap_found']) {
-                $result['error_code'] = 'event-010';
-                $result['properties'] = 
-                    ['overlap_start' => $overlap_result['overlap_start'],
-                     'overlap_end' => $overlap_result['overlap_end']];
-                return $result;
-            };
+            $this->findOverlap($event);
 
             $query_str = 
                 'INSERT INTO events (title, start, end, end_inclusive) ' .
                 'VALUES (:title, :start, :end, :end_inclusive);';
             $this->dbExecute($query_str, $event);
             $event['id'] = $this->db->lastInsertRowID();
+            unset($event['end_inclusive']);
 
-            $result['success'] = true;
-            $result['properties'] = $event;
-            return $result;
+            return $event;
         } finally {
             $this->releaseExclusiveLock();
         }       
     }
 
-    public function updateEvent(array $event)
+    // /throws ApiException
+    public function updateEvent(array $event): array
     {
-        $result = array('success' => false, 
-                        'error_code' => '',
-                        'properties' => []);
-
         $this->getExclusiveLock();
         try {
-            $overlap_result = $this->findOverlap($event);
-            if ($overlap_result['overlap_found']) {
-                $result['error_code'] = 'event-010';
-                $result['properties'] = 
-                    ['overlap_start' => $overlap_result['overlap_start'],
-                     'overlap_end' => $overlap_result['overlap_end']];
-                return $result;
-            };
-
+            $this->findOverlap($event);
+            
             $query_str = 
                 'UPDATE events SET (title, start, end, end_inclusive) ' .
                 '= (:title, :start, :end, :end_inclusive) ' .
                 'WHERE id = :id;';
             $this->dbExecute($query_str, $event);
+            unset($event['end_inclusive']);
 
-            $result['success'] = true;
-            $result['properties'] = $event;
-            return $result;
-
+            return $event;
         } finally {
             $this->releaseExclusiveLock();
         }
     }
 
-    public function findOverlap($event)
+    // /throws ApiException
+    public function findOverlap($event): void
     {
-        $result = array('overlap_found' => false, 
-                        'overlap_start' => false, 
-                        'overlap_end'   => false);
-
         $query = $this->db->prepare(
             'SELECT * FROM events WHERE ' .
             ':start < "end_inclusive" AND :end_inclusive > "start" AND :id != "id";');
@@ -136,8 +117,9 @@ class EventMapper {
         $query->bindValue(':id', $event['id']);
         $db_result = $query->execute();
 
-         while ($row = $db_result->fetchArray(SQLITE3_ASSOC)) {
-            $result['overlap_found'] = true;
+        $overlap = false;
+        while ($row = $db_result->fetchArray(SQLITE3_ASSOC)) {
+            $overlap = true;
             if ($event['start'] > $row['start']) {
                 $result['overlap_start'] = true;
             };
@@ -146,26 +128,30 @@ class EventMapper {
             };
         };
 
-        return $result;
+        if ($overlap) {
+            throw new ApiException('event-010', $result);
+        }
     }
 
-    public function deleteEvent($event_id)
+    // /throws ApiException
+    public function deleteEvent(int $event_id): void
     {
-        $result = array('success' => false, 
-                        'error_code' => '',
-                        'properties' => ['event_id' => $event_id]);
-
         if (!$this->db->querySingle("SELECT * FROM events WHERE id = $event_id;")) {
-            $result['error_code'] = 'event-011';
-            return $result;
+            throw new ApiException('event-011');
         }
 
-        if ($this->db->exec("DELETE FROM events WHERE id = $event_id;")) {
-            $result['success'] = true;
-        } else {
-            $result['error_code'] = 'api-010';
-            $result['properties'] = ['db_error_msg' => $this->db->lastErrorMsg()];
+        if (!$this->db->exec("DELETE FROM events WHERE id = $event_id;")) {
+            throw new ApiException('api-010', ['db_error_msg' => $this->db->lastErrorMsg()]);
         }
-        return $result;
     }
+
+    // /throws ApiException
+    public function deleteEvents($delete_params): void
+    {
+        $before = $delete_params['before'];
+        if (!$this->db->exec("DELETE FROM events WHERE end < '$before';")) {
+            throw new ApiException('api-010', ['db_error_msg' => $this->db->lastErrorMsg()]);
+        }
+    }
+
 }

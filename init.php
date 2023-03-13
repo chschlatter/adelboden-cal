@@ -6,6 +6,7 @@ define('CAL_API', CAL_PUBLIC . '/api');
 
 require CAL_ROOT . '/vendor/autoload.php';
 require CAL_ROOT . '/logger.php';
+require CAL_ROOT . '/ApiException.php';
 
 $dotenv = Dotenv\Dotenv::createImmutable(CAL_ROOT);
 $dotenv->safeLoad();

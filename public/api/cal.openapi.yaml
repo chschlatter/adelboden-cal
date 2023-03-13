@@ -53,7 +53,8 @@ paths:
                   title: second event
                   start: 2023-02-04
                   end: 2023-02-14
-
+        '401':
+          $ref: '#/components/responses/401-unauthorized'
         "5XX":
           description: Server error
 
@@ -91,8 +92,33 @@ paths:
                 title: second event
                 start: 2023-02-01
                 end: 2023-02-08
-        '422':
-          $ref: '#/components/responses/422-overlapFound'
+        '4XX':
+          $ref: '#/components/responses/4XX-Error'
+        '500':
+          description: Server error
+
+    delete:
+      summary: Delete events
+      description: >
+        Delete events that end before `before` query parameter.
+      operationId: deleteEvents
+      parameters:
+        - name: before
+          in: query
+          description: Events before this date are deleted
+          required: true
+          schema:
+            type: string
+            format: date
+          example:
+            before: 2023-01-01
+      responses:
+        '200':
+          description: Events got deleted
+        '401':
+          $ref: '#/components/responses/401-unauthorized'
+        '500':
+          description: Server error
 
   /events/{id}:
     summary: Represents an event
@@ -141,6 +167,8 @@ paths:
                 title: second event
                 start: 2023-02-02
                 end: 2023-02-08
+        '401':
+          $ref: '#/components/responses/401-unauthorized'
         '422':
           $ref: '#/components/responses/422-overlapFound'
 
@@ -168,7 +196,28 @@ components:
         start: 2023-02-01
         end: 2023-02-08
 
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required:
+        - code
+        - message
+
   responses:
+    4XX-Error:
+      description: API error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    401-unauthorized:
+      description: Authorization failed
+
     422-overlapFound:
       description: 'Overlap found'
       content:
