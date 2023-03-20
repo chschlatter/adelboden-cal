@@ -22,3 +22,12 @@ function exception_error_handler($errno, $errstr, $errfile, $errline ) {
     throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
 }
 set_error_handler("exception_error_handler");
+
+$db = new SQLite3(CAL_ROOT . '/' . $_ENV['DB_FILE']);
+$db->busyTimeout(5000);
+$db->exec("CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    start TIMESTAMP NOT NULL,
+    end TIMESTAMP NOT NULL,
+    end_inclusive TIMESTAMP NOT NULL)");

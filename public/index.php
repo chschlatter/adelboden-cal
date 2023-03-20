@@ -2,9 +2,11 @@
 
 require '../init.php';
 require CAL_ROOT . '/ApiRequest.php';
+require CAL_ROOT . '/UserMapper.php';
 
 try {
-  $auth_result = ApiRequest::cookieAuth();
+  $users = new UserMapper($db);
+  $auth_result = ApiRequest::cookieAuth($users->getUsers());
 } catch (ApiException $e) {
   header('Location: /login.php');
 }

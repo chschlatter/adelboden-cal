@@ -15,15 +15,6 @@ $app = new Bullet\App(array(
 
 require CAL_ROOT . '/common.php';
 
-$db = new SQLite3(CAL_ROOT . '/' . $_ENV['DB_FILE']);
-$db->busyTimeout(5000);
-$db->exec("CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    start TIMESTAMP NOT NULL,
-    end TIMESTAMP NOT NULL,
-    end_inclusive TIMESTAMP NOT NULL)");
-
 $app->path(array('/', 'index'), function($req) use($app) {
     $app->get(function($req) use($app) {
         $app->format('html', function($req) use($app) {
@@ -32,26 +23,35 @@ $app->path(array('/', 'index'), function($req) use($app) {
     });
 });
 
+$request->userMapper(new UserMapper($db));
+
 // PATH /users
-$app->path('users', function($req) use ($app, $db) {
-    $users = new UserMapper($db);
+$app->path('users', function($req) use ($app) {
+
+    // get users: GET /users
+    $app->get(function ($req) use ($app) {
+        try {
+            $req->auth('admin');
+            return $app->response(200, $req->userMapper()->getUsers());
+        } catch (ApiException $e) {
+            return $app->response($e->getStatus(), $e->getResponse());
+        }
+    });
 
     // PATH /users/login
-    $app->path('login', function($req) use ($app, $users) {
+    $app->path('login', function($req) use ($app) {
 
         // POST (login with user_name & password in request body)
-        $app->post(function($req) use ($app, $users) {
+        $app->post(function($req) use ($app) {
             try {
                 $user = $req->validateUserJson();
-                $req->loginAuth($user, $users->getUsers());
+                $req->loginAuth($user);
                 return $app->response(200, []);
             } catch (ApiException $e) {
                 return $app->response($e->getStatus(), $e->getResponse());
             }
         });
-
     });
-    return false;
 });
 
 $app->path('events', function($req) use ($app, $db) {
@@ -62,7 +62,6 @@ $app->path('events', function($req) use ($app, $db) {
         try {
             $req->auth();
             $range = $req->validateGetEvents();
-            $event_list = $events->getEvents($range);
             return $app->response(200, $events->getEvents($range));
 
         } catch (ApiException $e) {

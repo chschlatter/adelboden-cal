@@ -13,8 +13,8 @@
       <div class="row">
         <div class="col-lg-10 offset-lg-1 mt-5">
           <!-- <h3 class="mb-3 mt-5">Login</h3> -->
-          <div class="bg-white shadow rounded">
-            <div class="row">
+          <div class="bg-white shadow rounded" >
+            <div class="row"> <!-- style="min-height: 400px;" -->
 
               <div class="col-md-7 pe-0">
                 <div class="h-100 py-5 px-5">
@@ -33,7 +33,7 @@
                       </div>
                     </div>
 
-                    <div class="col-12">
+                    <div class="col-12 d-none" id="password-block">
                       <label>Password</label>
                       <div class="input-group">
                         <div class="input-group-text"><i class="bi bi-lock-fill"></i></div>
@@ -42,8 +42,7 @@
                                class="form-control"
                                placeholder="Enter password" 
                                aria-describedby="password-feedback" 
-                               name="password"
-                               disabled>
+                               name="password">
                         <div id="password-feedback" class="invalid-feedback"></div>
                       </div>
                     </div>
@@ -54,7 +53,7 @@
                               class="btn btn-primary px-4 float-end mt-4">
                         Login
                       </button>
-                      <div id="message-feedback" class="invalid-feedback"></div>
+                      <div id="message-feedback" class="text-danger"></div>
                     </div>
                   </form>
                 </div>

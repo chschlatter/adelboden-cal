@@ -2,6 +2,7 @@
 
 define('CAL_ROOT', dirname(__DIR__, 1));
 
+use Helmich\JsonAssert\JsonAssertions;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use GuzzleHttp\Client;
@@ -12,10 +13,15 @@ require CAL_ROOT . '/EventMapper.php';
 $dotenv = Dotenv\Dotenv::createImmutable(CAL_ROOT);
 $dotenv->safeLoad();
 
+define('TEST_USER', 'Christian');
+
+
 // fwrite(STDERR, print_r(self::$init_events, true));
 
 class CalApiTest extends TestCase
 {
+    use JsonAssertions;
+
     private static $client;
     private static $validator;
     private static $events;
@@ -54,7 +60,7 @@ class CalApiTest extends TestCase
                   'start' => $dates[0], 
                   'end'   => $dates[1]
                  ];
-        return $this->jsonRequest('POST', 'events', 'Christian', ['json' => $event]);
+        return $this->jsonRequest('POST', 'events', TEST_USER, ['json' => $event]);
     }
 
     protected function createEvents(array $events_dates, string $event_title): array
@@ -130,17 +136,69 @@ class CalApiTest extends TestCase
     #[TestDox('Check if /api/ is alive')]
     public function testGetStatusCode()
     {
-        $response = $this->jsonRequest('GET', 'events', 'Christian');
+        $response = $this->jsonRequest('GET', 'events', TEST_USER);
         $this->assertEquals(200, $response->getStatusCode());
     }
 
     public function testCookieAuthentication()
     {
         $response = $this->jsonRequest('GET', 'events');
-        $this->assertEquals(401, $response->getStatusCode());
+        $this->assertEquals(401, $response->getStatusCode(), 'no username');
 
-        $response = $this->jsonRequest('GET', 'events', 'Christian');
-        $this->assertEquals(200, $response->getStatusCode());
+        $response = $this->jsonRequest('GET', 'events', bin2hex(random_bytes(5)));
+        $this->assertEquals(401, $response->getStatusCode(), 'random username');
+
+        $response = $this->jsonRequest('GET', 'events', 'admin');
+        $this->assertEquals(200, $response->getStatusCode(), 'admin user');
+
+        $response = $this->jsonRequest('GET', 'events', TEST_USER);
+        $this->assertEquals(200, $response->getStatusCode(), 'test username');
+    }
+
+    public function testGetUsers()
+    {
+        // non-admin should not be allowed
+        $response = $this->jsonRequest('GET', 'users', TEST_USER);
+        $response_body = json_decode($response->getBody());
+        $this->assertEquals(401, $response->getStatusCode(), 'non-admin');
+
+        // with admin user
+        $response = $this->jsonRequest('GET', 'users', 'admin');
+        $response_body = json_decode($response->getBody());
+        $this->assertEquals(200, $response->getStatusCode(), 'get users');
+    }
+
+    #[TestDox('CRUD event')]
+    public function testCRUDEvent()
+    {
+        $this->deleteEventsBefore('2023-01-01');
+
+        // create event
+        $event = ['title' => TEST_USER, 
+                  'start' => '2022-01-03', 
+                  'end' => '2022-01-04'];
+        $response = $this->jsonRequest('POST', 'events', TEST_USER, ['json' => $event]);
+        $response_body = json_decode($response->getBody());
+        $this->assertEquals(201, $response->getStatusCode(), 'create event');
+        $event['id'] = $response_body->id;
+        $this->assertEquals((object) $event, $response_body, 'create event');
+
+        // $this->assertJsonValueEquals((string) $response->getBody(), '$.title', TEST_USER);
+
+        // update event
+        $event_update = ['title' => TEST_USER, 
+                         'start' => '2022-01-03', 
+                         'end' => '2022-01-06'];
+        $response = $this->jsonRequest('PUT', 'events/' . $event['id'], TEST_USER,
+                                       ['json' => $event_update]);
+        $response_body = json_decode($response->getBody());
+        $this->assertEquals(200, $response->getStatusCode(), 'update event');
+        $event_update['id'] = $event['id'];
+        $this->assertEquals((object) $event_update, $response_body);
+
+        // delete event
+        $response = $this->jsonRequest('DELETE', 'events/' . $event['id'], TEST_USER);
+        $this->assertEquals(200, $response->getStatusCode(), 'delete event');
     }
 
     public function testGetEvents()
@@ -150,9 +208,9 @@ class CalApiTest extends TestCase
                         ];
 
         $this->deleteEventsBefore('2023-01-01');
-        $events_created = $this->createEvents($events_dates, 'Christian');
+        $events_created = $this->createEvents($events_dates, TEST_USER);
 
-        $response = $this->jsonRequest('GET', 'events', 'Christian', 
+        $response = $this->jsonRequest('GET', 'events', TEST_USER, 
                                       ['query' => ['start' => '2022-01-01', 'end' => '2022-12-31']]);
         $events_got = json_decode($response->getBody());
         $this->assertEquals($events_created, $events_got);  
@@ -164,7 +222,7 @@ class CalApiTest extends TestCase
 
         // incomplete event parameters
         $event = ['start' => '2022-01-30'];
-        $response = $this->jsonRequest('POST', 'events', 'Christian',
+        $response = $this->jsonRequest('POST', 'events', TEST_USER,
                                        ['json' => $event]);
         $response_body = json_decode($response->getBody());
         $this->assertEquals(400, $response->getStatusCode());
@@ -174,17 +232,17 @@ class CalApiTest extends TestCase
         $event = ['title' => 'test', 
                   'start' => '2022-01-03', 
                   'end' => '2022-01-04'];
-        $response = $this->jsonRequest('POST', 'events', 'Christian',
+        $response = $this->jsonRequest('POST', 'events', TEST_USER,
                                        ['json' => $event]);
         $response_body = json_decode($response->getBody());
         $this->assertEquals(401, $response->getStatusCode());
         $this->assertEquals('api-020', $response_body->code);
 
         // create event
-        $event = ['title' => 'Christian', 
+        $event = ['title' => TEST_USER, 
                   'start' => '2022-01-03', 
                   'end' => '2022-01-04'];
-        $response = $this->jsonRequest('POST', 'events', 'Christian',
+        $response = $this->jsonRequest('POST', 'events', TEST_USER,
                                        ['json' => $event]);
         $response_body = json_decode($response->getBody());
         $this->assertEquals(201, $response->getStatusCode());
@@ -197,12 +255,22 @@ class CalApiTest extends TestCase
                         ];
 
         $this->deleteEventsBefore('2023-01-01');
-        $this->createEvents($events_dates, 'Christian');
+        $this->createEvents($events_dates, TEST_USER);
 
         // overlap_start
         $this->createEventOverlap(['2022-02-01', '2022-02-05'], 
-                                  'Christian',
+                                  TEST_USER,
                                   'overlap_start');
+
+        // overlap_end
+        $this->createEventOverlap(['2022-02-04', '2022-02-06'],
+                                  TEST_USER,
+                                  'overlap_end');
+
+        // overlap_both
+        $this->createEventOverlap(['2022-02-01', '2022-02-06'],
+                                  TEST_USER,
+                                  'overlap_both');
     }
 
 }

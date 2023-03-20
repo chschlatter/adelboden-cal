@@ -172,6 +172,40 @@ paths:
         '422':
           $ref: '#/components/responses/422-overlapFound'
 
+    delete:
+      description: Delete event with `id`
+      operationId: deleteEvent
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the event to delete
+      responses:
+        '200':
+          description: Event successfully deleted
+        '4XX':
+          $ref: '#/components/responses/4XX-Error'
+
+  /users:
+    get:
+      description: Get list of users
+      operationId: getUsers
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '4XX':
+          $ref: '#/components/responses/4XX-Error'
+        '5XX':
+          $ref: '#/components/responses/4XX-Error'
+
 components:
   schemas:
     Event:

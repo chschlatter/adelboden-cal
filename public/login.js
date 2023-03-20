@@ -10,6 +10,14 @@ $(document).ready(function() {
         if (e.which == 13) { // ENTER key
             login(e);
         }
+    });
+
+    $("#username-input").on("input", function() {
+        if ($(this).val() == 'admin') {
+            $('#password-block').removeClass('d-none');
+        } else {
+            $('#password-block').addClass('d-none');
+        }
     })
 });
 
@@ -19,40 +27,48 @@ function login(e) {
     const credentials = Object.fromEntries(form_data);
     console.log(credentials);
 
+    $(":button").attr('disabled', true);
+    $("#login-btn").html('Loging in ...');
+
     $.ajax({
         url: '/api/users/login',
         dataType: 'json',
         type: 'post',
-        data: JSON.stringify(credentials),
-        success: function(response) {
+        data: JSON.stringify(credentials)
+        })
+        .done(function( response ) {
             console.log(response);
-            /*
-            const username_b64 = response.token.substring(0, response.token.indexOf('.'));
-            const username = atob(username_b64);
-            console.log(username_b64 + ' - ' + username);
-            */
             window.location.assign('/');
-        },
-        error: function(xhr) {
-            console.log(xhr.responseText);
-            const error_obj = JSON.parse(xhr.responseText);
-            console.log(error_obj);
+        })
+        .fail(function( xhr ) {
+            try {
+                console.log(xhr.responseText);
+                const error_obj = JSON.parse(xhr.responseText);
+                console.log(error_obj);
 
-            if (error_obj.message) {
-                if (error_obj.code && typeof error_obj.code == 'string') {
-                    if (error_obj.code == 'auth-011') {
-                        $("#username-feedback").text(error_obj.message);
-                        $("#username-input").addClass('is-invalid');
+                if (error_obj.message) {
+                    if (error_obj.code && typeof error_obj.code == 'string') {
+                        switch(error_obj.code) {
+                        case 'auth-010':
+                            $("#password-feedback").text(error_obj.message);
+                            $("#password-input").addClass('is-invalid');
+                            break;
+                        case 'auth-011':
+                            $("#username-feedback").text(error_obj.message);
+                            $("#username-input").addClass('is-invalid');
+                            break;
+                        default:
+                            $("#message-feedback").text(error_obj.message);
+                        }
                     }
-                    if (error_obj.code == 'auth-010') {
-                        $("#password-feedback").text(error_obj.message);
-                        $("#password-input").addClass('is-invalid');
-                    }
-                } else {
-                    $("#message-feedback").text(error_obj.message);
                 }
+            } finally {
+                $(":button").attr('disabled', false);
+                $("#login-btn").html('Login');
             }
-        }
-    });
-
+        })
+        .always(function () {
+            $(":button").attr('disabled', false);
+            $("#login-btn").html('Login');
+        });
 }

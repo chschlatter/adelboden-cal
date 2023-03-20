@@ -3,11 +3,21 @@
 class ApiRequest extends \Bullet\Request
 {
     private $_auth_info = [];
+    protected $users;
 
     protected function validateDate($date, $format = 'Y-m-d'): bool
     {
         $d = DateTime::createFromFormat($format, $date);
         return $d && $d->format($format) == $date;
+    }
+
+    public function userMapper(UserMapper $users = null)
+    {
+        if ($users === null) {
+            return $this->users;
+        }
+        
+        $this->users = $users;
     }
 
     /**
@@ -83,13 +93,14 @@ class ApiRequest extends \Bullet\Request
     /**
      * /throws ApiException
      */
-    public function loginAuth(array $user, array $db_users): void
+    public function loginAuth(array $user): void
     {
         if ($user['name'] == 'admin') {
             if ($user['password'] != $_ENV['APP_ADMIN_PWD']) {
                 throw new ApiException('auth-010');
             }
         } else {
+            $db_users = $this->users->getUsers();
             if (!in_array($user['name'], $db_users)) {
                 throw new ApiException('auth-011');
             }
@@ -106,7 +117,7 @@ class ApiRequest extends \Bullet\Request
     /**
      * /throws ApiException
      */
-    public static function cookieAuth(): array
+    public static function cookieAuth(array $valid_users): array
     {
         $result = array();
         if (isset($_COOKIE['token'])) {
@@ -114,12 +125,16 @@ class ApiRequest extends \Bullet\Request
                 [$username_b64, $sig_token] = explode('.', $_COOKIE['token']);
                 $username = base64_decode($username_b64);
                 $sig_server = hash('sha256', $username . $_ENV['APP_ADMIN_PWD']);
-                if ($sig_token === $sig_server) {
+            } catch (Exception | Error $e) {
+                Log::error('Exception|Error in cookie_auth(): ' . $e->getMessage());
+                throw new ApiException('api-020');
+            }
+
+            if ($sig_token === $sig_server) {
+                if ($username == 'admin' or in_array($username, $valid_users)) {
                     $result['username'] = $username;
                     return $result;
                 }
-            } catch (Exception | Error $e) {
-                Log::error('Exception|Error in cookie_auth(): ' . $e->getMessage());
             }
         }
         throw new ApiException('api-020');
@@ -132,7 +147,7 @@ class ApiRequest extends \Bullet\Request
     {
         $arg_list = func_get_args();
 
-        $this->_auth_info = self::cookieAuth();
+        $this->_auth_info = self::cookieAuth($this->users->getUsers());
         $auth_username = $this->getUsername();
 
         if ($arg_list && !in_array($auth_username, $arg_list)) {
