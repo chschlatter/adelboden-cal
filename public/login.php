@@ -37,7 +37,7 @@
                       <label>Password</label>
                       <div class="input-group">
                         <div class="input-group-text"><i class="bi bi-lock-fill"></i></div>
-                        <input type="text" 
+                        <input type="password" 
                                id ="password-input" 
                                class="form-control"
                                placeholder="Enter password" 

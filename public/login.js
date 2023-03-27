@@ -32,7 +32,8 @@ function login(e) {
 
     $.ajax({
         url: '/api/users/login',
-        dataType: 'json',
+        // dataType: 'json', --> empty body
+        contentType: 'application/json; charset=utf-8',
         type: 'post',
         data: JSON.stringify(credentials)
         })

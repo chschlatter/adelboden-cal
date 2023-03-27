@@ -1,17 +1,15 @@
 <?php
 
-require '../init.php';
-require CAL_ROOT . '/ApiRequest.php';
-require CAL_ROOT . '/UserMapper.php';
+use CalApi\IAM;
 
-try {
-  $users = new UserMapper($db);
-  $auth_result = ApiRequest::cookieAuth($users->getUsers());
-} catch (ApiException $e) {
+$container = require __DIR__ . '/../bootstrap.php';
+
+$iam = $container->get(IAM::class);
+if (null == ($username = $iam->cookieAuth())) {
   header('Location: /login.php');
 }
 
-$SERVER_VARS = array('username' => $auth_result['username']);
+$SERVER_VARS = array('username' => $username);
 
 ?>
 <!DOCTYPE html>
@@ -30,6 +28,7 @@ $SERVER_VARS = array('username' => $auth_result['username']);
 
       <div class="page-header text-center">
         <h1>Calendar</h1>
+        <h3>User: <?php echo $SERVER_VARS['username']; ?></h3>
       </div>
 
       <hr>
@@ -62,6 +61,14 @@ $SERVER_VARS = array('username' => $auth_result['username']);
                 </div>
               </div>
 
+              <div class="row d-none" id="row-select-username">
+                <div class="col-sm-12">
+                  <label for="select-username">Username</label>
+                  <select class="form-control" name="username" id="select-username">
+                  </select>
+                </div>
+              </div>
+
               <div class="row">
                 <p class="text-danger" id="error-msg"></p>
               </div>
@@ -82,10 +89,10 @@ $SERVER_VARS = array('username' => $auth_result['username']);
       var SERVER_VARS = JSON.parse('<?php echo json_encode($SERVER_VARS); ?>');
     </script>
 
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.4/index.global.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.5/index.global.min.js'></script>
 
     <script src="https://code.jquery.com/jquery-3.6.3.min.js" integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
-    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/bootstrap5@6.1.4/index.global.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/bootstrap5@6.1.5/index.global.min.js'></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
     <script src="cal.js"></script>
 

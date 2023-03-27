@@ -205,6 +205,68 @@ paths:
           $ref: '#/components/responses/4XX-Error'
         '5XX':
           $ref: '#/components/responses/4XX-Error'
+    post:
+      description: Add user
+      operationId: addUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100   
+              required:
+                - name
+      responses:
+        '201':
+          description: "User successfully created."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100   
+        '4XX':
+          $ref: '#/components/responses/4XX-Error'
+        '500':
+          description: Server error
+
+  /users/login:
+    post:
+      description: Login user and set cookie with token
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                password:
+                  type: string
+                  minLength: 0
+                  maxLength: 100
+              required:
+                - name
+      responses:
+        '200':
+          description: User successfully logged in
+        '4XX':
+          $ref: '#/components/responses/4XX-Error'
+        '500':
+          description: Server error          
+
 
 components:
   schemas:
@@ -215,7 +277,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
         title:
           type: string
         start:

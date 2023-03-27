@@ -1,5 +1,6 @@
 <?php
-require 'vendor/autoload.php';
+
+namespace CalApi;
 
 use Monolog\Level;
 use Monolog\Logger;
@@ -31,7 +32,7 @@ class Log {
     protected static function configureInstance()
     {
         $logger = new Logger('logger');
-        $logger->pushHandler(new StreamHandler(__DIR__ . '/cal.log', Level::Debug));
+        $logger->pushHandler(new StreamHandler(CAL_ROOT . '/cal.log', Level::Debug));
         self::$instance = $logger;
     }
 

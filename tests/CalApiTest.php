@@ -7,8 +7,9 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use GuzzleHttp\Client;
 
-require CAL_ROOT . '/ApiRequest.php';
-require CAL_ROOT . '/EventMapper.php';
+use CalApi\IAM;
+
+
 
 $dotenv = Dotenv\Dotenv::createImmutable(CAL_ROOT);
 $dotenv->safeLoad();
@@ -34,10 +35,10 @@ class CalApiTest extends TestCase
     protected function jsonRequest(string $method, 
                                    string $path, 
                                    string $username = '',
-                                   array $guzzle_req_options = []): GuzzleHttp\Psr7\Response
+                                   array  $guzzle_req_options = []): GuzzleHttp\Psr7\Response
     {
         if ($username) {
-            $token = ApiRequest::createCookieToken($username);
+            $token = IAM::createCookieTokenPwd($username, $_ENV['APP_ADMIN_PWD']);
             $guzzle_req_options['headers'] = array_merge($guzzle_req_options['headers'] ?? [], 
                                                          ['Cookie' => "token=$token"]);
         }
@@ -132,6 +133,11 @@ class CalApiTest extends TestCase
         ]);
     }
 
+    protected function tearDown(): void
+    {
+        $this->deleteEventsBefore('2023-01-01');
+    }
+
 
     #[TestDox('Check if /api/ is alive')]
     public function testGetStatusCode()
@@ -155,6 +161,8 @@ class CalApiTest extends TestCase
         $this->assertEquals(200, $response->getStatusCode(), 'test username');
     }
 
+    
+    
     public function testGetUsers()
     {
         // non-admin should not be allowed
@@ -168,6 +176,67 @@ class CalApiTest extends TestCase
         $this->assertEquals(200, $response->getStatusCode(), 'get users');
     }
 
+    public function testUserLogin()
+    {
+        // non-existing user
+        $user = ['name' => bin2hex(random_bytes(5))];
+        $response = $this->jsonRequest('POST', 
+                                       'users/login',
+                                       '',
+                                       ['json' => $user]);
+        $this->assertEquals(400, $response->getStatusCode(), 'non-existing user');
+
+        // existing user & check cookie
+        $user = ['name' => TEST_USER];
+        $response = $this->jsonRequest('POST', 
+                                       'users/login',
+                                       '',
+                                       ['json' => $user]);
+        $this->assertEquals(200, $response->getStatusCode(), 'existing user - 200 OK');  
+        $token = IAM::createCookieTokenPwd(TEST_USER, $_ENV['APP_ADMIN_PWD']);
+        $cookie_header = urldecode($response->getHeaderLine('Set-Cookie'));
+        $this->assertStringContainsString('token=' . $token, 
+                                          $cookie_header,
+                                          'existing user - correct token in cookie');
+
+        // admin with wrong password
+        $user = ['name' => 'admin', 'password' => bin2hex(random_bytes(5))];
+        $response = $this->jsonRequest('POST', 
+                                       'users/login',
+                                       '',
+                                       ['json' => $user]);
+        $this->assertEquals(400, $response->getStatusCode(), 'admin with wrong password');
+
+        // admin & check cookie
+        $user = ['name' => 'admin', 'password' => $_ENV['APP_ADMIN_PWD']];
+        $response = $this->jsonRequest('POST', 
+                                       'users/login',
+                                       '',
+                                       ['json' => $user]);
+        $this->assertEquals(200, $response->getStatusCode(), 'admin - 200 OK'); 
+        $token = IAM::createCookieTokenPwd('admin', $_ENV['APP_ADMIN_PWD']);
+        $cookie_header = urldecode($response->getHeaderLine('Set-Cookie'));
+        $this->assertStringContainsString('token=' . $token, 
+                                          $cookie_header,
+                                          'admin - correct token in cookie');
+
+    }
+
+
+    /*
+    public function testAddUser()
+    {
+        // non-admin should not be allowed
+        $response = $this->jsonRequest('POST', 'users', TEST_USER, ['json' => ['name' => 'Nils']]);
+        $this->assertEquals(401, $response->getStatusCode(), 'non-admin');
+
+        // with admin user
+        $response = $this->jsonRequest('POST', 'users', 'admin', ['json' => ['name' => 'Nils']]);
+        $this->assertEquals(200, $response->getStatusCode(), 'add user');
+    }
+    */
+
+    
     #[TestDox('CRUD event')]
     public function testCRUDEvent()
     {
@@ -199,7 +268,9 @@ class CalApiTest extends TestCase
         // delete event
         $response = $this->jsonRequest('DELETE', 'events/' . $event['id'], TEST_USER);
         $this->assertEquals(200, $response->getStatusCode(), 'delete event');
+        $this->assertEmpty((string) $response->getBody(), 'delete event - empty response body');
     }
+    
 
     public function testGetEvents()
     {
@@ -238,10 +309,19 @@ class CalApiTest extends TestCase
         $this->assertEquals(401, $response->getStatusCode());
         $this->assertEquals('api-020', $response_body->code);
 
-        // create event
+        // as admin + event title != username
         $event = ['title' => TEST_USER, 
                   'start' => '2022-01-03', 
                   'end' => '2022-01-04'];
+        $response = $this->jsonRequest('POST', 'events', 'admin',
+                                       ['json' => $event]);
+        $response_body = json_decode($response->getBody());
+        $this->assertEquals(201, $response->getStatusCode());
+    
+        // create event
+        $event = ['title' => TEST_USER, 
+                  'start' => '2022-02-03', 
+                  'end' => '2022-02-04'];
         $response = $this->jsonRequest('POST', 'events', TEST_USER,
                                        ['json' => $event]);
         $response_body = json_decode($response->getBody());

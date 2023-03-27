@@ -1,5 +1,9 @@
 <?php
 
+namespace CalApi;
+
+use Exception;
+
 class ApiException extends Exception
 {
     protected $api_error_code;
@@ -32,6 +36,8 @@ class ApiException extends Exception
                         'status'  => 422 ],
         'event-011' => ['message' => 'Could not find event in database',
                         'status'  => 404],
+        'event-012' => ['message' => 'Event title is not a known user',
+                        'status'  => 400],
         'event-020' => ['message' => 'Wrong date provided',
                         'status'  => 400],
         'event-021' => ['message' => "Only one of 'from' and 'end' paramaters provided",

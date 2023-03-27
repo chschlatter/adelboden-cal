@@ -21,6 +21,10 @@ $(document).ready(function() {
     $("#error-msg").text('');
   });
 
+  if (SERVER_VARS.username == 'admin') {
+    $('#row-select-username').removeClass('d-none');
+  }
+
   calendar.render();
 
   console.log(SERVER_VARS);
@@ -36,6 +40,11 @@ function cal_on_select(info) {
   const end_date_exclusive = dayjs(info.end);
   const end_date_str = end_date_exclusive.subtract(1, 'day').format('YYYY-MM-DD');
   $('#input-end-date').val(end_date_str);
+
+  if (SERVER_VARS.username == 'admin') {
+    update_username_dropdown();
+  }
+
   $('#event-modal').modal('show');        
 }
 
@@ -44,6 +53,10 @@ function cal_on_eventClick(info) {
 
   if (SERVER_VARS.username != 'admin' && event.title != SERVER_VARS.username) {
     return;
+  }
+
+  if (SERVER_VARS.username == 'admin') {
+    update_username_dropdown();
   }
 
   const end_date_exclusive = dayjs(event.end);
@@ -79,12 +92,40 @@ function modal_on_ajax_error(xhr) {
   }
 }
 
+function update_username_dropdown() {
+
+  const request = $.ajax({
+    url: '/api/users',
+    dataType: 'json',
+    type: 'get'
+  });
+
+  request.done(function( response ) {
+    console.log(response);
+
+    $("#select-username").empty();
+    for (var i=0; i < response.length; i++) {
+      jQuery('<option/>', {
+        value: response[i],
+        html: response[i]
+      }).appendTo('#select-username');
+    }
+
+  });
+}
+
 function save_event(e) {
   const form_data = new FormData(document.getElementById("add-event-form-modal"));
   const event = Object.fromEntries(form_data);
   event.end = dayjs(event.end).add(1, 'day').format('YYYY-MM-DD');
 
-  event.title = SERVER_VARS.username;
+  if (SERVER_VARS.username == 'admin') {
+    event.title = event.username;
+    delete event.username;
+  } else {
+    event.title = SERVER_VARS.username;
+  }
+  
   console.log('save_event (from modal form): ' + JSON.stringify(event));
 
   $(":button").attr("disabled", true);
@@ -95,6 +136,7 @@ function save_event(e) {
 
     $.ajax({
       url: '/api/events/' + event.id,
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       type: 'put',
       data: JSON.stringify(event),
@@ -103,6 +145,7 @@ function save_event(e) {
         console.log('save_event (server response): ' + JSON.stringify(event_updated));
         if (cal_event != null) {
           cal_event.setDates(event.start, event.end, {allDay: true});
+          cal_event.setProp('title', event.title);
         };
         $("#event-modal").modal('hide');
       },
@@ -114,6 +157,7 @@ function save_event(e) {
     $.ajax({
       url: '/api/events',
       data: JSON.stringify(event),
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       type: 'post',
       success: function(event_created) {
@@ -136,7 +180,7 @@ function delete_event(e) {
 
   $.ajax({
     url: '/api/events/' + event.id,
-    dataType: 'json',
+    // dataType: 'json',
     type: 'delete',
     success: function() {
       cal_event = calendar.getEventById(event.id);
