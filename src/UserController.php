@@ -29,6 +29,23 @@ class UserController
                         ->withStatus(200);
     }
 
+    public function createUser(Request  $request, 
+                               Response $response): Response
+    {
+        $user = json_decode($request->getBody(), true);
+        $this->users->add($user);
+        return $response->withStatus(201);
+    }
+
+    public function deleteUser(Request  $request, 
+                               Response $response,
+                               string   $name): Response
+    {
+        $user = ['name' => $name];
+        $this->users->delete($user);
+        return $response->withStatus(200);
+    }
+
     public function login(Request  $request, 
                           Response $response): Response
     {

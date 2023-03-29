@@ -6,8 +6,9 @@ namespace CalApi;
 
 use DateTimeImmutable;
 use SQLite3Stmt;
+use JsonSerializable;
 
-class Event
+class Event implements JsonSerializable
 {
     private string $id, $title;
     private DateTimeImmutable $start, $end, $end_inclusive;
@@ -72,6 +73,11 @@ class Event
             $event_arr['end_inclusive'] = $this->end_inclusive->format('Y-m-d');
         }
         return $event_arr;
+    }
+
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 
     public function toJSON(bool $extended = false): string

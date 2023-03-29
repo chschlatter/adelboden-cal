@@ -37,10 +37,24 @@ class UserMapper
         return $this->users;
     }
 
-    public function createUser(array $user): void
+    public function add(array $user): void
     {
+        if (in_array($user['name'], $this->users)) {
+            throw new ApiException('user-010');
+        }
+
         $query = 'INSERT INTO users (name) VALUES (:name);';
-        $db_result = $this->db->execute($query);
+        $this->db->execute($query, $user);
+    }
+
+    public function delete(array $user): void
+    {
+        if (!in_array($user['name'], $this->users)) {
+            throw new ApiException('user-011');
+        }
+
+        $query = 'DELETE FROM users WHERE name = :name;';
+        $this->db->execute($query, $user);
     }
 
 /*

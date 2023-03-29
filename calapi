@@ -1,0 +1,66 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+define('CAL_ROOT', __DIR__);
+
+require CAL_ROOT . '/vendor/autoload.php';
+
+use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\Console\ConsoleEvents;
+use Symfony\Component\Console\Event\ConsoleTerminateEvent;
+use Dotenv\Dotenv;
+use Silly\Application;
+use DI\Container;
+use CalApi\CalApiClient;
+use CalApi\CalApiCLI;
+
+$dotenv = Dotenv::createImmutable(CAL_ROOT);
+$dotenv->safeLoad();
+
+$container = new Container([
+    CalApiClient::class => DI\autowire()
+        ->constructorParameter('base_uri', 'http://localhost/api/')
+        ->constructorParameter('admin_pwd', $_ENV['APP_ADMIN_PWD'])
+]);
+$calApiCLI = $container->get(CalApiCLI::class);
+
+$dispatcher = new EventDispatcher();
+$dispatcher->addListener(ConsoleEvents::TERMINATE, 
+                         function (ConsoleTerminateEvent $event) 
+                         use ($calApiCLI) {
+    $output = $event->getOutput();
+    // $command = $event->getCommand();
+    $calApiCLI->debugOutput($output);
+});
+
+$version = '0.2.0';
+$app = new Application('Manage CalApi', $version);
+$app->useContainer($container);
+$app->setDispatcher($dispatcher);
+
+$app->command('users:list', [CalApiCLI::class, 'usersList'])
+->descriptions('List users');
+
+$app->command('users:add name', [CalApiCLI::class, 'usersAdd'])
+->descriptions('Add user', [
+    'name' => 'Name of user to add'
+]);
+
+$app->command('users:delete name', [CalApiCLI::class, 'usersDelete'])
+->descriptions('Delete user', [
+    'name' => 'Name of user to delete'
+]);
+
+$app->command('events:list [--start=] [--end=]', [CalApiCLI::class, 'eventsList'])
+->descriptions('List events');
+
+$app->command('events:add title start end', function (SymfonyStyle $io) {
+    $io->writeln('events:get');
+});
+
+
+
+$app->run();
+

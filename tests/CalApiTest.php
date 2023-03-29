@@ -176,6 +176,55 @@ class CalApiTest extends TestCase
         $this->assertEquals(200, $response->getStatusCode(), 'get users');
     }
 
+    public function testAddUser()
+    {
+        // user exists already
+        $user = ['name' => TEST_USER];
+        $response = $this->jsonRequest('POST', 'users', 'admin', ['json' => $user]);
+        $this->assertEquals(400, $response->getStatusCode(), 'user already exists');
+
+        // new user
+        $username = 'testuser-' . bin2hex(random_bytes(5));
+        $user = ['name' => $username];
+        $response = $this->jsonRequest('POST', 'users', 'admin', ['json' => $user]);
+        $this->assertEquals(201, $response->getStatusCode(), 'new user');
+
+        // with admin user
+        $response = $this->jsonRequest('GET', 'users', 'admin');
+        $response_body = json_decode((string) $response->getBody());
+        $this->assertContains($username, $response_body);
+    }
+
+    public function testDeleteUser()
+    {
+        // user doesn't exist
+        $username = bin2hex(random_bytes(5));
+        $response = $this->jsonRequest('DELETE', 'users/' . $username, 'admin');
+        $this->assertEquals(400, $response->getStatusCode(), 'user does not exist');
+
+        // delete existing user
+        $username = 'testuser-' . bin2hex(random_bytes(5));
+        $user = ['name' => $username];
+        $response = $this->jsonRequest('POST', 'users', 'admin', ['json' => $user]);
+
+        $response = $this->jsonRequest('DELETE', 'users/' . $username, 'admin');
+        $this->assertEquals(200, $response->getStatusCode(), 'delete existing user');
+
+        $response = $this->jsonRequest('GET', 'users', 'admin');
+        $users = json_decode((string) $response->getBody());
+        $this->assertNotContains($username, $users);
+
+        // delete all test users
+        foreach ($users as $username) {
+            if (str_starts_with($username, 'testuser-')) {
+                $response = $this->jsonRequest('DELETE', 'users/' . $username, 'admin');
+                $this->assertEquals(200, $response->getStatusCode(), 'delete all test users');
+            }
+        }
+
+    }
+
+
     public function testUserLogin()
     {
         // non-existing user

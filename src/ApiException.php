@@ -32,6 +32,11 @@ class ApiException extends Exception
         'auth-011'  => ['message' => 'User not found',
                         'status'  => 400],
 
+        'user-010'  => ['message' => 'User already exists',
+                        'status'  => 400],
+        'user-011'  => ['message' => 'User does not exist',
+                        'status'  => 400],
+
         'event-010' => ['message' => 'Overlap found',
                         'status'  => 422 ],
         'event-011' => ['message' => 'Could not find event in database',

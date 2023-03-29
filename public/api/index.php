@@ -32,6 +32,12 @@ $app->group('/users', function (RouteCollectorProxy $group) {
     $group->get('', [UserController::class, 'getUsers'])
         ->setName('get-users');
 
+    $group->post('', [UserController::class, 'createUser'])
+        ->setName('create-user');
+
+    $group->delete('/{name}', [UserController::class, 'deleteUser'])
+        ->setName('delete-user');
+
     // POST /users/login - login user and set cookie
     $group->post('/login', [UserController::class, 'login'])
         ->setName('users-login');

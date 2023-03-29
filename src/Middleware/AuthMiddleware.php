@@ -56,6 +56,8 @@ class AuthMiddleware implements MiddlewareInterface
                 break;
             case 'delete-events':
             case 'get-users':
+            case 'create-user':
+            case 'delete-user':
                 $access_permitted = 
                     $this->iam->role($username, UserMapper::ADMIN);
                 break;

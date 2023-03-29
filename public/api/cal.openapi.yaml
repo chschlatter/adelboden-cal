@@ -223,16 +223,27 @@ paths:
                 - name
       responses:
         '201':
-          description: "User successfully created."
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  name:
-                    type: string
-                    minLength: 1
-                    maxLength: 100   
+          description: "User successfully created." 
+        '4XX':
+          $ref: '#/components/responses/4XX-Error'
+        '500':
+          description: Server error
+
+  /users/{name}:
+    delete:
+      description: Delete user with name `name`
+      operationId: deleteUser
+      parameters:
+        - in: path
+          name: name
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          required: true
+      responses:
+        '200':
+          description: User successfully deleted
         '4XX':
           $ref: '#/components/responses/4XX-Error'
         '500':
