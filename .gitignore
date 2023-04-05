@@ -2,3 +2,4 @@
 /vendor/
 /cal.*
 .phpunit.result.cache
+/public/coverage

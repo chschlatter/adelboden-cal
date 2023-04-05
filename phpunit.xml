@@ -1,9 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit 
-    bootstrap="vendor/autoload.php" colors="true">
+    bootstrap="tests/bootstrap.php" 
+    colors="true"
+    testdox="true">
         <testsuites>
             <testsuite name="default">
                 <directory>tests/</directory>
             </testsuite>
         </testsuites>
+	<coverage includeUncoveredFiles="false"
+		  pathCoverage="true">
+		<include>
+			<directory suffix=".php">src</directory>
+		</include>
+
+		<exclude>
+			<file>src/CalApiCLI.php</file>
+			<file>src/CalApiClient.php</file>
+			<file>src/Log.php</file>
+			<file>src/SQLiteDB.php</file>
+		</exclude>
+	</coverage>
 </phpunit>

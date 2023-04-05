@@ -53,10 +53,10 @@ class ApiException extends Exception
                                 $api_properties = [], 
                                 $message = '', 
                                 $code = 0, 
-                                Throwable $previous = null)
+                                \Throwable $previous = null)
     {
         if (!array_key_exists($api_error_code, $this->api_errors)) {
-            Log::warning(__CLASS__ . ': unknown $error_code [' . $error_code . '].');
+            Log::warning(__CLASS__ . ': unknown $error_code [' . $api_error_code . '].');
             $this->api_error_code = 'api-999';
         }
 
@@ -75,7 +75,7 @@ class ApiException extends Exception
 
     public function getApiMessage(): string
     {
-        return $this->body_message;
+        return $this->api_message;
     }
 
     public function getApiCode(): string

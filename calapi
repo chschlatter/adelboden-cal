@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 define('CAL_ROOT', __DIR__);
+define('DEFAULT_BASE_URI', 'http://localhost/api');
 
 require CAL_ROOT . '/vendor/autoload.php';
 
@@ -10,6 +11,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Event\ConsoleTerminateEvent;
+use Symfony\Component\Console\Event\ConsoleCommandEvent;
+use Symfony\Component\Console\Event\ConsoleErrorEvent;
+use Symfony\Component\Console\Input\InputOption;
 use Dotenv\Dotenv;
 use Silly\Application;
 use DI\Container;
@@ -21,24 +25,41 @@ $dotenv->safeLoad();
 
 $container = new Container([
     CalApiClient::class => DI\autowire()
-        ->constructorParameter('base_uri', 'http://localhost/api/')
+        ->constructorParameter('base_uri', DEFAULT_BASE_URI)
         ->constructorParameter('admin_pwd', $_ENV['APP_ADMIN_PWD'])
 ]);
-$calApiCLI = $container->get(CalApiCLI::class);
 
 $dispatcher = new EventDispatcher();
+$dispatcher->addListener(ConsoleEvents::COMMAND,
+                         function (ConsoleCommandEvent $event)
+                         use ($container) {
+    $client = $container->get(CalApiClient::class);
+    $input = $event->getInput();
+    $client->useBaseUri($input->getOption('uri'));
+});
 $dispatcher->addListener(ConsoleEvents::TERMINATE, 
                          function (ConsoleTerminateEvent $event) 
-                         use ($calApiCLI) {
+                         use ($container) {
+    $cli = $container->get(CalApiCLI::class);
     $output = $event->getOutput();
-    // $command = $event->getCommand();
-    $calApiCLI->debugOutput($output);
+    $cli->debugOutput($output);
+});
+$dispatcher->addListener(ConsoleEvents::ERROR, 
+                         function (ConsoleErrorEvent $event)
+                         use ($container) {
+    $cli = $container->get(CalApiCLI::class);
+    $output = $event->getOutput();
+    $cli->debugOutput($output);
 });
 
 $version = '0.2.0';
 $app = new Application('Manage CalApi', $version);
 $app->useContainer($container);
 $app->setDispatcher($dispatcher);
+
+$app->getDefinition()->addOptions([
+    new InputOption('--uri', '-u', InputOption::VALUE_OPTIONAL,
+                    'Base URI for the API', DEFAULT_BASE_URI)]);
 
 $app->command('users:list', [CalApiCLI::class, 'usersList'])
 ->descriptions('List users');
@@ -53,8 +74,13 @@ $app->command('users:delete name', [CalApiCLI::class, 'usersDelete'])
     'name' => 'Name of user to delete'
 ]);
 
-$app->command('events:list [--start=] [--end=]', [CalApiCLI::class, 'eventsList'])
-->descriptions('List events');
+$app->command('events:list [--start=] [--end=] [-e|--export]', 
+              [CalApiCLI::class, 'eventsList'])
+->descriptions('List events', [
+    '--start' => 'Only include events ending after START (YYYY-MM-DD)',
+    '--end' => 'Only include events starting before END (YYYY-MM-DD)',
+    '--export' => 'Dump events in JSON format'
+]);
 
 $app->command('events:add title start end', function (SymfonyStyle $io) {
     $io->writeln('events:get');

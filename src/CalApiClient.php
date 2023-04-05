@@ -17,8 +17,9 @@ use Exception;
 class CalApiClient
 {
     private Client $client;
+    private string $base_uri = '';
     private string $admin_pwd;
-    private array $transactions;
+    private array $transactions = [];
     public $debug_buffer; // PHP resources have no type (?)
 
     public function __construct(string $base_uri, string $admin_pwd)
@@ -37,11 +38,17 @@ class CalApiClient
         $this->admin_pwd = $admin_pwd;
     }
 
+    public function useBaseUri(string $uri): void
+    {
+        $uri = rtrim($uri, '/');
+        $this->base_uri = $uri;
+    }
+
     public function sendRequest(string $method,
                                 string $path,
-                                array $json_body = [],
+                                array $body = [],
                                 string $username = '',
-                                array  $guzzle_req_options = []): Response
+                                array  $guzzle_req_options = []): ResponseInterface
     {
         if ($username) {
             $token = IAM::createCookieTokenPwd($username, 
@@ -51,18 +58,23 @@ class CalApiClient
                             ['Cookie' => "token=$token"]);
         }
 
-        if ($json_body) {
-            $guzzle_req_options['json'] = $json_body;
+        if ($body) {
+            $guzzle_req_options['json'] = $body;
         }
 
+        if ($this->base_uri) {
+            $path = $this->base_uri . $path;
+        };
         return $this->client->request($method, $path, $guzzle_req_options);
     }
 
     public function makeAdminRequest(string $method,
                                      string $path,
-                                     array $body = []): ?array
+                                     array $body = [],
+                                     array $query = [],
+                                     bool $raw = false): array|string|null
     {
-        $options = [];
+        $options = ['query' => $query];
         if ($_ENV['SHELL_VERBOSITY'] > 2) {
             $this->debug_buffer = fopen('php://memory', 'r+');
             $options = ['debug' => $this->debug_buffer];
@@ -74,7 +86,12 @@ class CalApiClient
                                 (string) $response->getBody());
         }
 
-        return json_decode((string) $response->getBody(), true);
+        $body_str = (string) $response->getBody();
+        if ($raw) {
+            return $body_str;
+        } else {
+            return json_decode($body_str, true);
+        }
     }
 
     public function getTransactionsDebug(): array

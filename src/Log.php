@@ -24,11 +24,6 @@ class Log {
         return self::$instance;
     }
 
-    /**
-     * Configure Monolog to use a rotating files system.
-     *
-     * @return Logger
-     */
     protected static function configureInstance()
     {
         $logger = new Logger('logger');

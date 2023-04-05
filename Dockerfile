@@ -11,6 +11,10 @@ RUN apt-get update && apt-get install -y unzip && composer install
 
 RUN a2enmod rewrite
 
+# install PHP xdebug (only needed for DEV)
+RUN pecl install xdebug && docker-php-ext-enable xdebug
+COPY ./docker_configs/xdebug.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
 # RUN apt-get update && apt-get install -y sqlite3
 
 # WORKDIR /data

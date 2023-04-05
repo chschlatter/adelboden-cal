@@ -23,9 +23,6 @@ class EventController
                               Response $response): Response
     {
         $range = $request->getQueryParams();
-        if (!isset($range['start'], $range['end'])) {
-            $range = null;
-        }
         $event_list = $this->events->get($range);
         $response->getBody()->write(json_encode($event_list));
         return $response->withHeader('Content-Type', 'application/json')

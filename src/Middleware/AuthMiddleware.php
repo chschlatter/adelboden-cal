@@ -10,6 +10,8 @@ use Slim\Routing\RouteContext;
 use Slim\Exception\HttpNotFoundException;
 use Slim\Exception\HttpUnauthorizedException;
 
+use PHPUnit\Framework\Attributes\CodeCoverageIgnore;
+
 use CalApi\IAM;
 use CalApi\UserMapper;
 use CalApi\ApiException;
@@ -20,6 +22,7 @@ class AuthMiddleware implements MiddlewareInterface
 {
     private IAM $iam;
 
+    #[CodeCoverageIgnore]
     public function __construct(IAM $iam)
     {
         $this->iam = $iam;
@@ -58,6 +61,7 @@ class AuthMiddleware implements MiddlewareInterface
             case 'get-users':
             case 'create-user':
             case 'delete-user':
+            case 'api-tests-coverage-report':
                 $access_permitted = 
                     $this->iam->role($username, UserMapper::ADMIN);
                 break;

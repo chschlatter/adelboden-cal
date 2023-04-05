@@ -1,18 +1,13 @@
 <?php
 
-define('CAL_ROOT', dirname(__DIR__, 1));
-
 use Helmich\JsonAssert\JsonAssertions;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use GuzzleHttp\Client;
 
+use CalApi\CalApiClient;
+use CalApi\Middleware\CoverageMiddleware;
 use CalApi\IAM;
-
-
-
-$dotenv = Dotenv\Dotenv::createImmutable(CAL_ROOT);
-$dotenv->safeLoad();
 
 define('TEST_USER', 'Christian');
 
@@ -32,18 +27,35 @@ class CalApiTest extends TestCase
             ['start' => '2022-02-04', 'end' => '2022-02-06']
     ];
 
+    public static function setUpBeforeClass(): void
+    {
+        // create OpenAPI validator
+        $yamlFile = CAL_ROOT . '/public/api/cal.openapi.yaml';
+        self::$validator = (new \League\OpenAPIValidation\PSR7\ValidatorBuilder)
+                           ->fromYamlFile($yamlFile)
+                           ->getResponseValidator();
+
+        self::$client = new CalApiClient('http://localhost/api/', 
+                                        $_ENV['APP_ADMIN_PWD']);
+    }
+
     protected function jsonRequest(string $method, 
                                    string $path, 
                                    string $username = '',
                                    array  $guzzle_req_options = []): GuzzleHttp\Psr7\Response
     {
-        if ($username) {
-            $token = IAM::createCookieTokenPwd($username, $_ENV['APP_ADMIN_PWD']);
-            $guzzle_req_options['headers'] = array_merge($guzzle_req_options['headers'] ?? [], 
-                                                         ['Cookie' => "token=$token"]);
+        if (isset($_SERVER['COVERAGE']) && ($_SERVER['COVERAGE'] == true)) {
+
+            // get calling function name
+            $dbt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2);
+            $caller = $dbt[1]['function'] ?? 'CalApiTest';
+
+            // add coverage header to trigger coverage on server side
+            $guzzle_req_options = array_merge($guzzle_req_options,
+                                   ['headers' => [CoverageMiddleware::HEADER => $caller]]);
         }
 
-        $response = self::$client->request($method, $path, $guzzle_req_options);
+        $response = self::$client->sendRequest($method, $path, [], $username, $guzzle_req_options);
 
         // validate response against OpenApi spec
         if (!str_starts_with($path, '/')) {
@@ -116,21 +128,6 @@ class CalApiTest extends TestCase
             default:
                 throw new Exception('createEventOverlap: unknown type [' . $type . ']');
         }
-    }
-
-    public static function setUpBeforeClass(): void
-    {
-        // create OpenAPI validator
-        $yamlFile = CAL_ROOT . '/public/api/cal.openapi.yaml';
-        self::$validator = (new \League\OpenAPIValidation\PSR7\ValidatorBuilder)
-                           ->fromYamlFile($yamlFile)
-                           ->getResponseValidator();
-
-        // create Guzzle HTTP client
-        self::$client = new Client([
-            'base_uri' => 'http://localhost/api/',
-            'http_errors' => false
-        ]);
     }
 
     protected function tearDown(): void

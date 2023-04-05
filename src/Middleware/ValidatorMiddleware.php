@@ -10,6 +10,8 @@ use Slim\Routing\RouteContext;
 use League\OpenAPIValidation\PSR7\ValidatorBuilder;
 use League\OpenAPIValidation\PSR7\OperationAddress;
 
+use PHPUnit\Framework\Attributes\CodeCoverageIgnore;
+
 use CalApi\Log;
 
 
@@ -17,6 +19,7 @@ class ValidatorMiddleware implements MiddlewareInterface
 {
     private $validator = null;
 
+    #[CodeCoverageIgnore]
     public function __construct(string $spec_file)
     {
         $this->validator = (new ValidatorBuilder)
@@ -29,10 +32,14 @@ class ValidatorMiddleware implements MiddlewareInterface
     {
         $routeContext = RouteContext::fromRequest($request);
         $route = $routeContext->getRoute();
+        $route_name = $route->getName();
         $pattern = $route->getPattern();
 
-        $address = new OperationAddress($pattern, strtolower($request->getMethod()));
-        $this->validator->validate($address, $request);
+        // no validation for /api-tests/coverage-report
+        if ($route_name !== 'api-tests-coverage-report') {
+            $address = new OperationAddress($pattern, strtolower($request->getMethod()));
+            $this->validator->validate($address, $request);
+        };
 
         return $handler->handle($request);
     }

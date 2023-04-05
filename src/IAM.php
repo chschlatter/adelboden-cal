@@ -6,6 +6,8 @@ use CalApi\Event;
 use CalApi\UserMapper;
 use CalApi\ApiException;
 
+use PHPUnit\Framework\Attributes\CodeCoverageIgnore;
+
 class IAM
 {
     const ADMIN = 0x1;
@@ -14,6 +16,7 @@ class IAM
     private array $users;
     private string $admin_pwd;
 
+    #[CodeCoverageIgnore]
     public function __construct(UserMapper $user_mapper, 
                                 string $admin_pwd)
     {
@@ -110,7 +113,7 @@ class IAM
                 [$username_b64, $sig_token] = explode('.', $_COOKIE['token']);
                 $username = base64_decode($username_b64);
                 $sig_server = hash('sha256', $username . $this->admin_pwd);
-            } catch (Exception | Error $e) {
+            } catch (\Exception | \Error $e) {
                 Log::error('Exception|Error in cookieAuth(): ' . $e->getMessage());
                 return null;
             }

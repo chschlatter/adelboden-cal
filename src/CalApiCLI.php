@@ -19,7 +19,7 @@ class CalApiCLI
 
     public function usersList(SymfonyStyle $io): void
     {
-        $response = $this->client->makeAdminRequest('GET', 'users');
+        $response = $this->client->makeAdminRequest('GET', '/users');
         $io->title('List of users');
         if ($response === null) {
             $io->writeln('Empty list');
@@ -31,20 +31,40 @@ class CalApiCLI
     public function usersAdd(SymfonyStyle $io, $name): void
     {
         $user = ['name' => $name];
-        $response = $this->client->makeAdminRequest('POST', 'users', $user);
+        $response = $this->client->makeAdminRequest('POST', '/users', $user);
         $io->success("User [$name] added");
     }
 
     public function usersDelete(SymfonyStyle $io, $name): void
     {
         $response = $this->client->makeAdminRequest('DELETE',
-                                                    'users/' . $name);
+                                                    '/users/' . $name);
         $io->success("User [$name] deleted");
     }
 
-    public function eventsList(SymfonyStyle $io): void
+    public function eventsList(SymfonyStyle $io,
+                               ?string $start,
+                               ?string $end,
+                               bool $export): void
     {
-        $response = $this->client->makeAdminRequest('GET', 'events');
+        $query = array();
+        if ($start) {
+            $query['start'] = $start;
+        }
+        if ($end) {
+            $query['end'] = $end;
+        }
+
+        $response = $this->client->makeAdminRequest('GET', 
+                                                    '/events',
+                                                    [],
+                                                    $query,
+                                                    $export);
+        if ($export) {
+            $io->write($response, false, OutputInterface::OUTPUT_RAW);
+            return;
+        }
+
         $io->title('List of events');
         if ($response === null) {
             $io->writeln('Empty list');

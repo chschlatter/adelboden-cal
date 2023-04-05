@@ -15,26 +15,20 @@ paths:
         query parameters `start` and `end`.
       operationId: getEvents
       parameters:
-        - name: range
+        - name: start
           in: query
-          description: Date range for the list of events
+          description: Only include events ending after `start`
           required: false
           schema:
-            type: object
-            properties:
-              start:
-                type: string
-                format: date
-              end:
-                type: string
-                format: date
-            additionalProperties: false
-            required:
-              - start
-              - end
-          example:
-            start: 2023-02-01
-            end: 2023-02-08
+            type: string
+            format: date
+        - name: end
+          in: query
+          description: Only include events starting before `end`
+          required: false
+          schema:
+            type: string
+            format: date
       responses:
         "200":
           description: List of events in JSON format

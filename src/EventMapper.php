@@ -33,14 +33,21 @@ class EventMapper {
                         bool   $extended = false): array
     {
         $query = 'SELECT * FROM events';
-        if ($search_params !== null) {
+        if ($search_params) {
+            $where = array();
             if (isset($search_params['id'])) {
-                $query .= ' WHERE id = :id';
-            } 
-            elseif (isset($search_params['start'], $search_params['end'])) {
-                $query .= ' WHERE start BETWEEN :start AND :end';
+                $where[] = 'id = :id';
+            };
+            if (isset($search_params['start'])) {
+                $where[] = 'end > :start';
             }
+            if (isset($search_params['end'])) {
+                $where[] = 'start < :end';
+            }
+
+            $query = $query . ' WHERE ' . implode(' AND ', $where);
         }
+
         $db_result = $this->db->execute($query . ';', $search_params);
         $events_array = [];
         while ($row = $db_result->fetchArray(SQLITE3_ASSOC)) {
@@ -96,6 +103,7 @@ class EventMapper {
         $overlap = false;
         while ($row = $db_result->fetchArray(SQLITE3_ASSOC)) {
             $overlap = true;
+            $result = array();
             $event_arr = $event->toArray(true);
             if ($event_arr['start'] > $row['start']) {
                 $result['overlap_start'] = true;
@@ -120,7 +128,7 @@ class EventMapper {
             $query .= ' WHERE end < :before'; 
         }
         else {
-            throw Exception('EventMapper::delete(): Wrong $search_params');
+            throw new \Exception('EventMapper::delete(): Wrong $search_params');
         }
 
         $this->db->execute($query . ';', $search_params);

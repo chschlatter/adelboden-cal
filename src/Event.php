@@ -25,7 +25,7 @@ class Event implements JsonSerializable
     private function _fromArray(array $event): void
     {
         if (!isset($event['title'], $event['start'], $event['end'])) {
-            throw Exception('Event.fromArray(): title, start, and end ' .
+            throw new \Exception('Event.fromArray(): title, start, and end ' .
                             'parameters are mandatory.');
         }
         $this->id = (string) ($event['id'] ?? 0);

@@ -8,10 +8,13 @@ use SQLite3;
 use SQLite3Result;
 use CalApi\ApiException;
 
+use PHPUnit\Framework\Attributes\CodeCoverageIgnore;
+
 class SQLiteDB
 {
     public readonly SQLite3 $db;
 
+    #[CodeCoverageIgnore]
     public function __construct(string $db_file, ?int $busy_timeout = null)
     {
         $this->db = new SQLite3($db_file);

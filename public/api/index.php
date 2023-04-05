@@ -1,10 +1,12 @@
-<?php
+<?php declare(strict_types=1);
 
 use Slim\Routing\RouteCollectorProxy;
 use Slim\Factory\AppFactory;
+use Psr\Http\Message\ResponseInterface as Response;
 
 use CalApi\Middleware\AuthMiddleware;
 use CalApi\Middleware\ValidatorMiddleware;
+use CalApi\Middleware\CoverageMiddleware;
 use CalApi\IAM;
 use CalApi\EventController;
 use CalApi\UserController;
@@ -18,7 +20,9 @@ $app = \DI\Bridge\Slim\Bridge::create($container);
 $app->setBasePath(BASE_API_PATH);
 
 $app->add(new ValidatorMiddleware(CAL_API . '/' . $_ENV['OPENAPI_FILE']));
-$app->add(new AuthMiddleware($container->get(IAM::class)));
+$app->add($container->get(AuthMiddleware::class));
+// if DEV
+$app->add($container->get(CoverageMiddleware::class));
 $app->addRoutingMiddleware();
 
 $errorMiddleware = $app->addErrorMiddleware(true, true, true);
@@ -60,5 +64,14 @@ $app->group('/events', function (RouteCollectorProxy $group) {
     $group->delete('', [EventController::class, 'deleteEvents'])
         ->setName('delete-events');
 });
+
+// if DEV
+$app->get('/api-tests/coverage-report', function (Response $response) use ($container) {
+    $coverage_middleware = $container->get(CoverageMiddleware::class);
+    $coverage_middleware->htmlReport('/tmp/coverage');
+    $coverage_middleware->removePersistence();
+    return $response->withStatus(200);
+})
+->setName('api-tests-coverage-report');
 
 $app->run();
